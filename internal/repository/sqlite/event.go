@@ -10,23 +10,23 @@ import (
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
 
-type EventRepo struct {
+type EventRepository struct {
 	db *sql.DB
 }
 
-func NewEventRepository(db *sql.DB) *EventRepo {
-	return &EventRepo{
+func NewEventRepository(db *sql.DB) *EventRepository {
+	return &EventRepository{
 		db: db,
 	}
 }
 
-func (r *EventRepo) Save(ctx context.Context, e domain.Event) error {
+func (r *EventRepository) Save(ctx context.Context, e domain.Event) (int64, error) {
 	const query = `
 		INSERT INTO events
 			(user_id, title, description, date, created_at)
-		VALUES (?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?) RETURNING id`
 
-	_, err := r.db.ExecContext(ctx, query,
+	res, err := r.db.ExecContext(ctx, query,
 		e.UserID,
 		e.Title,
 		e.Description,
@@ -34,13 +34,17 @@ func (r *EventRepo) Save(ctx context.Context, e domain.Event) error {
 		e.CreatedAt.UTC(),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to save event: %w", err)
+		return 0, fmt.Errorf("failed to save event: %w", err)
 	}
 
-	return nil
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
-func (r *EventRepo) GetByID(ctx context.Context, eventID int64) (*domain.Event, error) {
+func (r *EventRepository) GetByID(ctx context.Context, eventID int64) (*domain.Event, error) {
 	const query = `
 		SELECT id, user_id, title, description, date, created_at
 		FROM events 
@@ -79,7 +83,7 @@ func (r *EventRepo) GetByID(ctx context.Context, eventID int64) (*domain.Event, 
 	return &event, nil
 }
 
-func (r *EventRepo) GetByUserID(ctx context.Context, userID int64) ([]domain.Event, error) {
+func (r *EventRepository) GetByUserID(ctx context.Context, userID int64) ([]domain.Event, error) {
 	const query = `
 		SELECT id, user_id, title, description, date, created_at
 		FROM events
@@ -124,7 +128,7 @@ func (r *EventRepo) GetByUserID(ctx context.Context, userID int64) ([]domain.Eve
 	return events, nil
 }
 
-func (r *EventRepo) GetAll(ctx context.Context) ([]domain.Event, error) {
+func (r *EventRepository) GetAll(ctx context.Context) ([]domain.Event, error) {
 	const query = `
 		SELECT id, user_id, title, description, date, created_at
 		FROM events
@@ -168,4 +172,22 @@ func (r *EventRepo) GetAll(ctx context.Context) ([]domain.Event, error) {
 	}
 
 	return events, nil
+}
+
+func (r *EventRepository) Delete(ctx context.Context, eventID int64) error {
+	const query = `
+		DELETE FROM events
+		WHERE id = ?`
+
+	res, err := r.db.ExecContext(ctx, query, eventID)
+	if err != nil {
+		return fmt.Errorf("failed to delete event: %w", err)
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return domain.ErrEventNotFound
+	}
+
+	return err
 }

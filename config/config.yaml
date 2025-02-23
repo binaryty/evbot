@@ -1,0 +1,5 @@
+bot_token: "6421080707:AAHHCXxe390fMNsiqUsAtmsj5Zd_njw1640"
+admin_ids:
+  - 141431779
+  - 299193506
+db_path: "events.db"

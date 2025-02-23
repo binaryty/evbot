@@ -4,18 +4,15 @@ import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"time"
-
-	"github.com/binaryty/evbot/internal/domain/entities"
 )
 
 const (
 	dateFormat = "02.01.2006"
 )
 
-func generateCalendar(calendar *domain.Calendar) tgbotapi.InlineKeyboardMarkup {
+func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.InlineKeyboardMarkup {
 	now := time.Now()
-	current := calendar.CurrentDate
-	year, month, _ := current.Date()
+	year, month, _ := currentDate.Date()
 	firstDay := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	var keyboard [][]tgbotapi.InlineKeyboardButton
@@ -24,15 +21,15 @@ func generateCalendar(calendar *domain.Calendar) tgbotapi.InlineKeyboardMarkup {
 	header := []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonData(
 			"◀️",
-			fmt.Sprintf("calendar:prev:%s", current.Format(dateFormat)),
+			fmt.Sprintf("calendar:prev:%s", currentDate.Format(dateFormat)),
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
-			current.Format("January 2006"),
+			currentDate.Format("January 2006"),
 			"ignore",
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
 			"▶️",
-			fmt.Sprintf("calendar:next:%s", current.Format(dateFormat)),
+			fmt.Sprintf("calendar:next:%s", currentDate.Format(dateFormat)),
 		),
 	}
 	keyboard = append(keyboard, header)
@@ -53,12 +50,19 @@ func generateCalendar(calendar *domain.Calendar) tgbotapi.InlineKeyboardMarkup {
 
 	for d := firstDay; d.Month() == month; d = d.AddDate(0, 0, 1) {
 		dayText := fmt.Sprintf("%d", d.Day())
-		callbackData := fmt.Sprintf("calendar:select:%s", d.Format(dateFormat))
 
-		// подсветка текущего дня
-		if d.Year() == now.Year() && d.Month() == now.Month() && d.Day() == now.Day() {
+		if !selectedDate.IsZero() &&
+			d.Year() == selectedDate.Year() &&
+			d.Month() == selectedDate.Month() &&
+			d.Day() == selectedDate.Day() {
 			dayText = "✅ " + dayText
+		} else if d.Year() == now.Year() &&
+			d.Month() == now.Month() &&
+			d.Day() == now.Day() {
+			dayText = "🟢 " + dayText
 		}
+
+		callbackData := fmt.Sprintf("calendar:select:%s", d.Format(dateFormat))
 
 		btn := tgbotapi.NewInlineKeyboardButtonData(dayText, callbackData)
 		row = append(row, btn)

@@ -46,7 +46,6 @@ func (h *Handler) handleDescriptionStep(ctx context.Context, userID int64, chatI
 	state.TempEvent.Description = text
 	state.Step = domain.StepDate
 
-	//TODO: версионирование
 	if err := h.stateRepo.SaveState(ctx, userID, state); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
@@ -58,12 +57,13 @@ func (h *Handler) handleDescriptionStep(ctx context.Context, userID int64, chatI
 func (h *Handler) sendDateCalendar(chatID int64) error {
 	calendar := domain.NewCalendar()
 	msg := tgbotapi.NewMessage(chatID, "Выберите дату события:")
-	msg.ReplyMarkup = generateCalendar(calendar)
-	_, err := h.bot.Send(msg)
-	return err
+	msg.ReplyMarkup = generateCalendar(calendar.CurrentDate, calendar.CurrentDate)
+	h.bot.Send(msg)
+
+	return nil
 }
 
-func (h *Handler) handleDateState(ctx context.Context, userID int64, chatID int64, text string, state *domain.EventState) error {
+func (h *Handler) handleDateState(ctx context.Context, userID int64, chatID int64, text string, state domain.EventState) error {
 	date, err := time.Parse("02.01.2006 15:04", text)
 	if err != nil {
 		h.sendError(chatID, "Неверный формат даты. попробуйте снова (ДД.ММ.ГГГГ ЧЧ:ММ):")
@@ -78,7 +78,7 @@ func (h *Handler) handleDateState(ctx context.Context, userID int64, chatID int6
 	state.TempEvent.Date = date
 	state.Step = domain.StepCompleted
 
-	if err := h.eventUC.CreateEvent(ctx, userID, state.TempEvent); err != nil {
+	if _, err := h.eventUC.CreateEvent(ctx, userID, state.TempEvent); err != nil {
 		h.sendError(chatID, "Ошибка сохранения события")
 		return fmt.Errorf("failed to create event: %w", err)
 	}
@@ -89,15 +89,24 @@ func (h *Handler) handleDateState(ctx context.Context, userID int64, chatID int6
 	return nil
 }
 
-func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, chatID int64) error {
+func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, chatID int64, text string) error {
 	state, err := h.stateRepo.GetState(ctx, userID)
 	if err != nil {
 		h.sendError(chatID, "Ошибка создания события")
 		return fmt.Errorf("get state error: %w", err)
 	}
 
+	tt, err := time.Parse("15:04", text)
+	if err != nil {
+		return fmt.Errorf("failed to parse time: %w", err)
+	}
+
+	dd := state.TempEvent.Date
+
+	state.TempEvent.Date = time.Date(dd.Year(), dd.Month(), dd.Day(), tt.Hour(), tt.Minute(), 0, 0, time.UTC)
+
 	// Валидация данных
-	if state.TempEvent.Title == "" || state.TempEvent.Date.IsZero() {
+	if state.TempEvent.Title == "" || state.TempEvent.Date.IsZero() || state.TempEvent.Date.Hour() == 0 {
 		h.sendError(chatID, "Не все данные заполнены")
 		return errors.New("incomplete event data")
 	}
@@ -112,7 +121,8 @@ func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, c
 	}
 
 	// Сохраняем в БД
-	if err := h.eventUC.CreateEvent(ctx, userID, event); err != nil {
+	event.ID, err = h.eventUC.CreateEvent(ctx, userID, event)
+	if err != nil {
 		h.sendError(chatID, "Ошибка сохранения события")
 		return fmt.Errorf("failed to create event: %w", err)
 	}
@@ -129,18 +139,19 @@ func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, c
 	)
 
 	// Создаем кнопки управления
-	markup := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				"✏️ Редактировать",
-				fmt.Sprintf("edit_event:%d", event.ID),
-			),
-			tgbotapi.NewInlineKeyboardButtonData(
-				"👥 Участники",
-				fmt.Sprintf("participants:%d", event.ID),
-			),
-		),
-	)
+	markup := createEventButtons(event.ID, false, true)
+	//markup := tgbotapi.NewInlineKeyboardMarkup(
+	//	tgbotapi.NewInlineKeyboardRow(
+	//		tgbotapi.NewInlineKeyboardButtonData(
+	//			"❌ Удалить",
+	//			fmt.Sprintf("delete_confirm:%d", event.ID),
+	//		),
+	//		tgbotapi.NewInlineKeyboardButtonData(
+	//			"👥 Участники",
+	//			fmt.Sprintf("participants:%d", event.ID),
+	//		),
+	//	),
+	//)
 
 	msg := tgbotapi.NewMessage(chatID, msgText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2

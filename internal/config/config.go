@@ -7,16 +7,18 @@ import (
 )
 
 type Config struct {
-	BotToken string
-	DBPath   string
-	AdminID  int64
+	BotToken string  `mapstructure:"bot_token"`
+	DBPath   string  `mapstructure:"db_path"`
+	AdminIDs []int64 `mapstructure:"admin_ids"`
 }
 
 func Load() *Config {
-	admID, err := strconv.ParseInt(os.Getenv("ADMIN_ID"), 10, 64)
+	admIDs := make([]int64, 0)
+	id, err := strconv.ParseInt(os.Getenv("ADMIN_ID"), 10, 64)
 	if err != nil {
 		log.Fatalf("failed to parse admin ID")
 	}
+	admIDs = append(admIDs, id)
 
 	botToken := os.Getenv("BOT_TOKEN")
 	dbPath := os.Getenv("DB_PATH")
@@ -28,6 +30,6 @@ func Load() *Config {
 	return &Config{
 		BotToken: botToken,
 		DBPath:   dbPath,
-		AdminID:  admID,
+		AdminIDs: admIDs,
 	}
 }

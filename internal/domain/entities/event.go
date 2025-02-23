@@ -20,7 +20,8 @@ type Event struct {
 }
 
 type EventState struct {
-	Step      string
-	TempEvent Event
-	CreatedAt time.Time
+	Step         string
+	TempEvent    Event
+	SelectedDate time.Time
+	CreatedAt    time.Time
 }

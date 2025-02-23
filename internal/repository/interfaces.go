@@ -12,10 +12,11 @@ var (
 )
 
 type EventRepository interface {
-	Save(ctx context.Context, event domain.Event) error
+	Save(ctx context.Context, event domain.Event) (int64, error)
 	GetByID(ctx context.Context, eventID int64) (*domain.Event, error)
 	GetByUserID(ctx context.Context, userID int64) ([]domain.Event, error)
 	GetAll(ctx context.Context) ([]domain.Event, error)
+	Delete(ctx context.Context, eventID int64) error
 }
 
 type StateRepository interface {

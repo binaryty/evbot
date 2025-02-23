@@ -37,11 +37,12 @@ func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) er
 
 	if len(events) == 0 {
 		msg := tgbotapi.NewMessage(chatID, "У вас пока нет событий")
-		_, err = h.bot.Send(msg)
-		return err
+		h.bot.Send(msg)
+		return nil
 	}
 
 	var messages []tgbotapi.Chattable
+	isAdmin := h.isAdmin(userID)
 
 	for _, event := range events {
 		// Проверяем регистрацию пользователя
@@ -65,26 +66,11 @@ func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) er
 			util.EscapeMarkdownV2(eventOwner.UserName),
 		)
 
-		// Создаем кнопки для каждого события
-		regBtnText, regBtnEmoji := "Регистрация", "🎫"
-		if isRegistered {
-			regBtnText, regBtnEmoji = "Зарегистрирован", "✅"
-		}
-
-		btnRow := tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%s %s", regBtnEmoji, regBtnText),
-				fmt.Sprintf("register:%d", event.ID),
-			),
-			tgbotapi.NewInlineKeyboardButtonData(
-				"👥 Участники",
-				fmt.Sprintf("participants:%d", event.ID),
-			),
-		)
+		buttons := createEventButtons(event.ID, isRegistered, isAdmin)
 
 		// Создаем сообщение с кнопками
 		msg := tgbotapi.NewMessage(chatID, text)
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(btnRow)
+		msg.ReplyMarkup = buttons
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
 		messages = append(messages, msg)
 	}
@@ -104,4 +90,35 @@ func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) er
 	}
 
 	return nil
+}
+
+func createEventButtons(eventID int64, isRegistered bool, isAdmin bool) tgbotapi.InlineKeyboardMarkup {
+	row := []tgbotapi.InlineKeyboardButton{
+		createRegButton(eventID, isRegistered),
+		tgbotapi.NewInlineKeyboardButtonData(
+			"👥 Участники",
+			fmt.Sprintf("participants:%d", eventID),
+		),
+	}
+
+	if isAdmin {
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(
+			"❌ Удалить",
+			fmt.Sprintf("delete_confirm:%d", eventID),
+		))
+	}
+
+	return tgbotapi.NewInlineKeyboardMarkup(row)
+}
+
+func createRegButton(eventID int64, isRegistered bool) tgbotapi.InlineKeyboardButton {
+	text, icon := "Регистрация", "🎫"
+	if isRegistered {
+		text, icon = "Зарегистрирован", "✅"
+	}
+
+	return tgbotapi.NewInlineKeyboardButtonData(
+		fmt.Sprintf("%s %s", icon, text),
+		fmt.Sprintf("register:%d", eventID),
+	)
 }

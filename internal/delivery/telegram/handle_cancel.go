@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"context"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *Handler) handleCancelCommand(ctx context.Context, userID int64, chatID int64) error {
@@ -11,8 +10,8 @@ func (h *Handler) handleCancelCommand(ctx context.Context, userID int64, chatID 
 		return err
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "Теукщее действие отменено")
-	_, err := h.bot.Send(msg)
-
-	return err
+	icon := "✅"
+	text := "Текущее действие отменено"
+	h.sendMsg(chatID, icon, text)
+	return nil
 }

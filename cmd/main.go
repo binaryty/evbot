@@ -37,6 +37,7 @@ func main() {
 	userUC := usecase.NewUserUseCase(userRepo)
 
 	handler := telegram.NewHandler(
+		cfg,
 		bot,
 		eventUC,
 		registrationUC,
@@ -51,7 +52,7 @@ func main() {
 	for {
 		select {
 		case update := <-updates:
-			if err := handler.HandleUpdate(ctx, update); err != nil {
+			if err := handler.HandleUpdate(ctx, &update); err != nil {
 				log.Printf("can't handle update: %v", err)
 			}
 		}

@@ -30,10 +30,9 @@ func (h *Handler) handleUserInput(ctx context.Context, userID int64, chatID int6
 	case domain.StepDescription:
 		return h.handleDescriptionStep(ctx, userID, chatID, text, *state)
 	case domain.StepDate:
-		return h.handleDateState(ctx, userID, chatID, text, state)
+		return h.handleDateState(ctx, userID, chatID, text, *state)
 	case domain.StepTime:
-		return h.handleFinishEventCreation(ctx, userID, chatID)
-
+		return h.handleFinishEventCreation(ctx, userID, chatID, text)
 	default:
 		return nil
 	}

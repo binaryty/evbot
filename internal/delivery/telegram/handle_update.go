@@ -8,9 +8,9 @@ import (
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
 
-func (h *Handler) HandleUpdate(ctx context.Context, update tgbotapi.Update) error {
+func (h *Handler) HandleUpdate(ctx context.Context, update *tgbotapi.Update) error {
 	if update.CallbackQuery != nil {
-		return h.handleCallback(ctx, update.CallbackQuery)
+		return h.handleCallback(ctx, update)
 	}
 
 	if update.Message == nil {
@@ -32,7 +32,7 @@ func (h *Handler) HandleUpdate(ctx context.Context, update tgbotapi.Update) erro
 
 	switch msg.Command() {
 	case "start":
-		return h.handleStartCommand(ctx, chatID, user.ID)
+		return h.handleStartCommand(ctx, update)
 	case "help":
 		return h.handleHelpCommand(chatID)
 	case "new_event":
@@ -40,8 +40,20 @@ func (h *Handler) HandleUpdate(ctx context.Context, update tgbotapi.Update) erro
 	case "list_events":
 		return h.listEvents(ctx, user.ID, msg.Chat.ID)
 	case "cancel":
-		return h.handleCancelCommand(ctx, user.ID, chatID)
+		return h.handleCancelCommand(ctx, msg.Chat.ID, user.ID)
 	default:
 		return h.handleUserInput(ctx, user.ID, msg.Chat.ID, msg.Text)
 	}
+}
+
+func GetUserIDFromUpdate(update *tgbotapi.Update) int64 {
+	if update.CallbackQuery != nil {
+		return update.CallbackQuery.From.ID
+	}
+
+	if update.Message != nil {
+		return update.Message.From.ID
+	}
+
+	return 0
 }

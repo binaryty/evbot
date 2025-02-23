@@ -1,13 +1,17 @@
 package telegram
 
 import (
+	"context"
+	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
+	"github.com/binaryty/evbot/internal/config"
 	"github.com/binaryty/evbot/internal/repository"
 	"github.com/binaryty/evbot/internal/usecase"
 )
 
 type Handler struct {
+	cfg            *config.Config
 	bot            *tgbotapi.BotAPI
 	eventUC        *usecase.EventUseCase
 	registrationUC *usecase.RegistrationUseCase
@@ -17,6 +21,7 @@ type Handler struct {
 }
 
 func NewHandler(
+	cfg *config.Config,
 	bot *tgbotapi.BotAPI,
 	eventUC *usecase.EventUseCase,
 	registrationUC *usecase.RegistrationUseCase,
@@ -25,6 +30,7 @@ func NewHandler(
 	stateRepo repository.StateRepository,
 ) *Handler {
 	return &Handler{
+		cfg:            cfg,
 		bot:            bot,
 		eventUC:        eventUC,
 		registrationUC: registrationUC,
@@ -34,8 +40,21 @@ func NewHandler(
 	}
 }
 
+type HandlerFunc func(ctx context.Context, update *tgbotapi.Update) error
+
 func (h *Handler) sendError(chatID int64, text string) {
 	msg := tgbotapi.NewMessage(chatID, "❌ "+text)
 	msg.ParseMode = "Markdown"
-	_, _ = h.bot.Send(msg)
+	h.bot.Send(msg)
+}
+
+func (h *Handler) sendCallback(queryID string, icon string, text string) {
+	callback := tgbotapi.NewCallbackWithAlert(queryID, fmt.Sprintf("%s %s", icon, text))
+	h.bot.Send(callback)
+}
+
+func (h *Handler) sendMsg(chatID int64, icon string, text string) {
+	msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("%s %s", icon, text))
+	msg.ParseMode = "Markdown"
+	h.bot.Send(msg)
 }
