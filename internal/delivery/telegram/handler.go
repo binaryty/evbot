@@ -1,7 +1,6 @@
 package telegram
 
 import (
-	"context"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -39,8 +38,6 @@ func NewHandler(
 		stateRepo:      stateRepo,
 	}
 }
-
-type HandlerFunc func(ctx context.Context, update *tgbotapi.Update) error
 
 func (h *Handler) sendError(chatID int64, text string) {
 	msg := tgbotapi.NewMessage(chatID, "❌ "+text)
