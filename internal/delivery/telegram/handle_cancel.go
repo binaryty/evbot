@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// handleCancelCommand ...
 func (h *Handler) handleCancelCommand(ctx context.Context, update *tgbotapi.Update) error {
 	var userID, chatID int64
 

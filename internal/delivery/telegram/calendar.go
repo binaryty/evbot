@@ -12,13 +12,34 @@ const (
 
 func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.InlineKeyboardMarkup {
 	now := time.Now()
-	year, month, _ := currentDate.Date()
-	firstDay := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	var keyboard [][]tgbotapi.InlineKeyboardButton
 
 	// Заголовок с названием месяца и навигацией
-	header := []tgbotapi.InlineKeyboardButton{
+	header := generateHeader(currentDate)
+	keyboard = append(keyboard, header)
+
+	// Заголовок дней недели
+	weekRow := generateWeakRow()
+	keyboard = append(keyboard, weekRow)
+
+	// Сетка с днями
+	grid := generateGrid(&keyboard, now, currentDate, selectedDate)
+	if len(grid) > 0 {
+		keyboard = append(keyboard, grid)
+	}
+
+	// кнопка подтверждения
+	keyboard = append(keyboard, []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("Готово", "calendar:confirm"),
+	})
+
+	return tgbotapi.NewInlineKeyboardMarkup(keyboard...)
+}
+
+// generateHeader ...
+func generateHeader(currentDate time.Time) []tgbotapi.InlineKeyboardButton {
+	return []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonData(
 			"◀️",
 			fmt.Sprintf("calendar:prev:%s", currentDate.Format(dateFormat)),
@@ -32,18 +53,26 @@ func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.In
 			fmt.Sprintf("calendar:next:%s", currentDate.Format(dateFormat)),
 		),
 	}
-	keyboard = append(keyboard, header)
+}
 
-	// Заголовок дней недели
+// generateWeakRow ...
+func generateWeakRow() []tgbotapi.InlineKeyboardButton {
 	weekDays := []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
 	var weekRow []tgbotapi.InlineKeyboardButton
 	for _, day := range weekDays {
 		weekRow = append(weekRow, tgbotapi.NewInlineKeyboardButtonData(day, "ignore"))
 	}
-	keyboard = append(keyboard, weekRow)
 
-	// Сетка с днями
+	return weekRow
+}
+
+// generateGrid ...
+func generateGrid(keyboard *[][]tgbotapi.InlineKeyboardButton, now time.Time, currentDate time.Time, selectedDate time.Time) []tgbotapi.InlineKeyboardButton {
 	var row []tgbotapi.InlineKeyboardButton
+
+	year, month, _ := currentDate.Date()
+	firstDay := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
 	for i := 0; i < int(firstDay.Weekday()-1); i++ {
 		row = append(row, tgbotapi.NewInlineKeyboardButtonData(" ", "ignore"))
 	}
@@ -68,19 +97,10 @@ func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.In
 		row = append(row, btn)
 
 		if len(row) == 7 {
-			keyboard = append(keyboard, row)
+			*keyboard = append(*keyboard, row)
 			row = []tgbotapi.InlineKeyboardButton{}
 		}
 	}
 
-	if len(row) > 0 {
-		keyboard = append(keyboard, row)
-	}
-
-	// кнопка подтверждения
-	keyboard = append(keyboard, []tgbotapi.InlineKeyboardButton{
-		tgbotapi.NewInlineKeyboardButtonData("Готово", "calendar:confirm"),
-	})
-
-	return tgbotapi.NewInlineKeyboardMarkup(keyboard...)
+	return row
 }

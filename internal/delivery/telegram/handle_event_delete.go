@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// handleEventDelete ...
 func (h *Handler) handleEventDelete(ctx context.Context, query *tgbotapi.CallbackQuery) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -41,7 +42,7 @@ func (h *Handler) handleEventDelete(ctx context.Context, query *tgbotapi.Callbac
 		h.bot.Send(callback)
 		return err
 	}
-	h.sendCallback(query.ID, "✅", "Событие успешно удалено")
+	h.sendCallback(query.ID, EmOk, "Событие успешно удалено")
 
 	// удаляем сообщение с событием
 	deleteMsg := tgbotapi.NewDeleteMessage(chatID, query.Message.MessageID)

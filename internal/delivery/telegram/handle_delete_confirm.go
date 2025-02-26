@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// handleDeleteConfirmation ...
 func (h *Handler) handleDeleteConfirmation(ctx context.Context, update *tgbotapi.Update) error {
 	query := update.CallbackQuery
 	chatID := query.Message.Chat.ID

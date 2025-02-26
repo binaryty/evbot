@@ -16,6 +16,8 @@ const (
 	EmPeople = "👥"
 	EmList   = "📋"
 	EmPin    = "📌"
+	EmPrev   = "◀️"
+	EmNext   = "▶️"
 )
 
 type Handler struct {

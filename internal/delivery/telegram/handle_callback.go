@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// handleCallback ...
 func (h *Handler) handleCallback(ctx context.Context, update *tgbotapi.Update) error {
 	query := update.CallbackQuery
 	// убрать анимацию кнопки

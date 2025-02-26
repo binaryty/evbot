@@ -10,6 +10,7 @@ import (
 	"github.com/binaryty/evbot/internal/domain/entities"
 )
 
+// handleCalendarCallback ...
 func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.CallbackQuery) error {
 	parts := strings.Split(query.Data, ":")
 	if len(parts) < 2 {
