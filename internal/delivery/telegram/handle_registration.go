@@ -10,6 +10,7 @@ import (
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
 
+// handleRegistration ...
 func (h *Handler) handleRegistration(ctx context.Context, query *tgbotapi.CallbackQuery) error {
 	eventID, _ := strconv.ParseInt(strings.Split(query.Data, ":")[1], 10, 64)
 	user := domain.User{

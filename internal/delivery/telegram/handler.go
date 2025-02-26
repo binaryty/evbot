@@ -9,6 +9,15 @@ import (
 	"github.com/binaryty/evbot/internal/usecase"
 )
 
+const (
+	EmReg    = "🎫"
+	EmCross  = "❌"
+	EmOk     = "✅"
+	EmPeople = "👥"
+	EmList   = "📋"
+	EmPin    = "📌"
+)
+
 type Handler struct {
 	cfg            *config.Config
 	bot            *tgbotapi.BotAPI

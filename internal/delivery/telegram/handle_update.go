@@ -18,7 +18,6 @@ func (h *Handler) HandleUpdate(ctx context.Context, update *tgbotapi.Update) err
 	}
 
 	msg := update.Message
-	chatID := msg.Chat.ID
 	user := domain.User{
 		ID:        msg.From.ID,
 		FirstName: msg.From.FirstName,
@@ -34,13 +33,13 @@ func (h *Handler) HandleUpdate(ctx context.Context, update *tgbotapi.Update) err
 	case "start":
 		return h.handleStartCommand(ctx, update)
 	case "help":
-		return h.handleHelpCommand(chatID)
+		return h.handleHelpCommand(update)
 	case "new_event":
-		return h.startNewEvent(ctx, user.ID, msg.Chat.ID)
+		return h.startNewEvent(ctx, update)
 	case "list_events":
-		return h.listEvents(ctx, user.ID, msg.Chat.ID)
+		return h.listEvents(ctx, update)
 	case "cancel":
-		return h.handleCancelCommand(ctx, msg.Chat.ID, user.ID)
+		return h.handleCancelCommand(ctx, update)
 	default:
 		return h.handleUserInput(ctx, update, msg.Text)
 	}

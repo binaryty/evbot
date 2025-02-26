@@ -36,7 +36,7 @@ func (h *Handler) handleCallback(ctx context.Context, update *tgbotapi.Update) e
 	case "delete_event":
 		return h.handleEventDelete(ctx, query)
 	case "delete_cancel":
-		return h.handleCancelCommand(ctx, update.Message.Chat.ID, update.Message.From.ID)
+		return h.handleCancelCommand(ctx, update)
 	}
 
 	return nil

@@ -34,7 +34,7 @@ func (h *Handler) handleDeleteConfirmation(ctx context.Context, update *tgbotapi
 
 			tgbotapi.NewInlineKeyboardButtonData(
 				"❌ Отмена",
-				"delete_cancel",
+				fmt.Sprintf("delete_cancel:%d", eventID),
 			),
 		),
 	)
