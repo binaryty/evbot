@@ -42,7 +42,7 @@ func (h *Handler) HandleUpdate(ctx context.Context, update *tgbotapi.Update) err
 	case "cancel":
 		return h.handleCancelCommand(ctx, msg.Chat.ID, user.ID)
 	default:
-		return h.handleUserInput(ctx, user.ID, msg.Chat.ID, msg.Text)
+		return h.handleUserInput(ctx, update, msg.Text)
 	}
 }
 
