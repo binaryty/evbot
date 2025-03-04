@@ -8,10 +8,6 @@ import (
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
 
-const (
-	timeFormat = "15:04"
-)
-
 func GenerateTimePicker(tp *domain.TimePicker) tgbotapi.InlineKeyboardMarkup {
 	var timePicker [][]tgbotapi.InlineKeyboardButton
 

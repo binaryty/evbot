@@ -104,7 +104,8 @@ func (h *Handler) confirmTimeSelection(ctx context.Context, query *tgbotapi.Call
 	delMsg := tgbotapi.NewDeleteMessage(query.Message.Chat.ID, query.Message.MessageID)
 	h.bot.Send(delMsg)
 
-	return h.sendConfirmation(query.Message.Chat.ID, state.TempEvent)
+	// h.sendConfirmation(query.Message.Chat.ID, state.TempEvent)
+	return nil
 }
 
 func (h *Handler) cancelTimeSelection(ctx context.Context, query *tgbotapi.CallbackQuery) error {
