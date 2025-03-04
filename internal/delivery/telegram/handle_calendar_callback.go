@@ -70,13 +70,7 @@ func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.Ca
 			h.sendError(query.Message.Chat.ID, " Дата не выбрана")
 			return nil
 		}
-
-		// Запросить время
-		msg := tgbotapi.NewMessage(query.Message.Chat.ID,
-			fmt.Sprintf("Выбрана дата: %s\nВведите время в формате ЧЧ:ММ",
-				state.TempEvent.Date.Format(dateFormat)))
-		h.bot.Send(msg)
 	}
 
-	return nil
+	return h.handleTimeStep(ctx, userID, query.Message.Chat.ID)
 }

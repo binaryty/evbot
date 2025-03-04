@@ -3,6 +3,7 @@ package telegram
 import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"log/slog"
 
 	"github.com/binaryty/evbot/internal/config"
 	"github.com/binaryty/evbot/internal/repository"
@@ -23,29 +24,30 @@ const (
 type Handler struct {
 	cfg            *config.Config
 	bot            *tgbotapi.BotAPI
+	logger         *slog.Logger
 	eventUC        *usecase.EventUseCase
 	registrationUC *usecase.RegistrationUseCase
 	userUC         *usecase.UserUseCase
-	userRepo       repository.UserRepository
 	stateRepo      repository.StateRepository
 }
 
 func NewHandler(
 	cfg *config.Config,
 	bot *tgbotapi.BotAPI,
+	logger *slog.Logger,
 	eventUC *usecase.EventUseCase,
 	registrationUC *usecase.RegistrationUseCase,
 	userUC *usecase.UserUseCase,
-	userRepo repository.UserRepository,
+	//userRepo repository.UserRepository,
 	stateRepo repository.StateRepository,
 ) *Handler {
 	return &Handler{
 		cfg:            cfg,
 		bot:            bot,
+		logger:         logger,
 		eventUC:        eventUC,
 		registrationUC: registrationUC,
 		userUC:         userUC,
-		userRepo:       userRepo,
 		stateRepo:      stateRepo,
 	}
 }

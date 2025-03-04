@@ -33,7 +33,7 @@ func (h *Handler) handleStartCommand(ctx context.Context, update *tgbotapi.Updat
 }
 
 func (h *Handler) getUserName(ctx context.Context, userID int64) string {
-	user, err := h.userRepo.GetByID(ctx, userID)
+	user, err := h.userUC.User(ctx, userID)
 	if err != nil {
 		return "друг"
 	}

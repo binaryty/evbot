@@ -41,7 +41,7 @@ func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.In
 func generateHeader(currentDate time.Time) []tgbotapi.InlineKeyboardButton {
 	return []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonData(
-			"◀️",
+			EmPrev,
 			fmt.Sprintf("calendar:prev:%s", currentDate.Format(dateFormat)),
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
@@ -49,7 +49,7 @@ func generateHeader(currentDate time.Time) []tgbotapi.InlineKeyboardButton {
 			"ignore",
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
-			"▶️",
+			EmNext,
 			fmt.Sprintf("calendar:next:%s", currentDate.Format(dateFormat)),
 		),
 	}

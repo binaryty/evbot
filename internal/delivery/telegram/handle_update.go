@@ -24,7 +24,7 @@ func (h *Handler) HandleUpdate(ctx context.Context, update *tgbotapi.Update) err
 		UserName:  msg.From.UserName,
 	}
 
-	err := h.userRepo.CreateOrUpdate(ctx, &user)
+	err := h.userUC.CreateOrUpdate(ctx, &user)
 	if err != nil {
 		log.Printf("Failed to update user: %v", err)
 	}

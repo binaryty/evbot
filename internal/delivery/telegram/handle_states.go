@@ -6,8 +6,10 @@ import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
+	"log/slog"
 	"time"
 
+	"github.com/binaryty/evbot/internal/delivery/telegram/timepicker"
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 	"github.com/binaryty/evbot/internal/util"
 )
@@ -57,6 +59,29 @@ func (h *Handler) sendDateCalendar(chatID int64) error {
 	h.bot.Send(msg)
 
 	return nil
+}
+
+// handleTimeStep ...
+func (h *Handler) handleTimeStep(ctx context.Context, userID int64, chatID int64) error {
+
+	state, err := h.stateRepo.GetState(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to get state:", slog.String("[ERROR]", err.Error()))
+		return fmt.Errorf("failed to get state: %w", err)
+	}
+
+	tp := domain.TimePicker{
+		SelectedTime: state.TempEvent.Date,
+		Step:         "hours",
+	}
+
+	msg := tgbotapi.NewMessage(chatID, "Выбурите время:")
+	msg.ReplyMarkup = timepicker.GenerateTimePicker(&tp)
+	h.bot.Send(msg)
+
+	state.TimePicker = tp
+
+	return h.stateRepo.SaveState(ctx, userID, *state)
 }
 
 // handleFinishEventCreation ...
