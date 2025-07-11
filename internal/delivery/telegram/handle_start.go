@@ -6,7 +6,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *Handler) handleStartCommand(ctx context.Context, chatID int64, userID int64) error {
+func (h *Handler) handleStartCommand(ctx context.Context, update *tgbotapi.Update) error {
 	welcomeText := fmt.Sprintf(
 		`👋 Привет, %s! Я бот для управления событиями.
 
@@ -22,10 +22,10 @@ func (h *Handler) handleStartCommand(ctx context.Context, chatID int64, userID i
 */help* - показать справку
 
 Начните с создания первого события!`,
-		h.getUserName(ctx, userID),
+		h.getUserName(ctx, update.Message.From.ID),
 	)
 
-	msg := tgbotapi.NewMessage(chatID, welcomeText)
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, welcomeText)
 	msg.ParseMode = "Markdown"
 	_, err := h.bot.Send(msg)
 
@@ -33,7 +33,7 @@ func (h *Handler) handleStartCommand(ctx context.Context, chatID int64, userID i
 }
 
 func (h *Handler) getUserName(ctx context.Context, userID int64) string {
-	user, err := h.userRepo.GetByID(ctx, userID)
+	user, err := h.userUC.User(ctx, userID)
 	if err != nil {
 		return "друг"
 	}

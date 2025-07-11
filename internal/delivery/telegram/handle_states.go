@@ -6,105 +6,110 @@ import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
-	"strings"
+	"log/slog"
 	"time"
 
+	"github.com/binaryty/evbot/internal/delivery/telegram/timepicker"
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 	"github.com/binaryty/evbot/internal/util"
 )
 
-func (h *Handler) handleTitleStep(ctx context.Context, userID int64, chatID int64, text string, state domain.EventState) error {
-	if strings.TrimSpace(text) == "" {
-		h.sendError(chatID, "Название не может быть пустым")
-		return nil
-	}
+// handleTitleStep ...
+func (h *Handler) handleTitleStep(ctx context.Context, update *tgbotapi.Update, text string, state domain.EventState) error {
 	if len(text) > 100 {
-		h.sendError(chatID, "Слишком длинное название (макс. 100 символов)")
+		h.sendError(update.Message.Chat.ID, "Слишком длинное название (макс. 100 символов)")
 		return nil
 	}
 
 	state.TempEvent.Title = text
 	state.Step = domain.StepDescription
 
-	// TODO: версионирование состояний
-	if err := h.stateRepo.SaveState(ctx, userID, state); err != nil {
+	if err := h.stateRepo.SaveState(ctx, update.Message.From.ID, state); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "Введите описание события:")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите описание события:")
 	h.bot.Send(msg)
 
 	return nil
 }
 
-func (h *Handler) handleDescriptionStep(ctx context.Context, userID int64, chatID int64, text string, state domain.EventState) error {
+// handleDescriptionStep ...
+func (h *Handler) handleDescriptionStep(ctx context.Context, update *tgbotapi.Update, text string, state domain.EventState) error {
 	if len(text) > 500 {
-		h.sendError(chatID, "Слишком длинное описание (макс. 500 символов)")
+		h.sendError(update.Message.Chat.ID, "Слишком длинное описание (макс. 500 символов)")
 		return nil
 	}
 
 	state.TempEvent.Description = text
 	state.Step = domain.StepDate
 
-	//TODO: версионирование
-	if err := h.stateRepo.SaveState(ctx, userID, state); err != nil {
+	if err := h.stateRepo.SaveState(ctx, update.Message.From.ID, state); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
-	return h.sendDateCalendar(chatID)
+	return h.sendDateCalendar(update.Message.Chat.ID)
 }
 
-// Отправка календаря для выбора даты
+// sendDateCalendar ...
 func (h *Handler) sendDateCalendar(chatID int64) error {
 	calendar := domain.NewCalendar()
 	msg := tgbotapi.NewMessage(chatID, "Выберите дату события:")
-	msg.ReplyMarkup = generateCalendar(calendar)
-	_, err := h.bot.Send(msg)
-	return err
-}
-
-func (h *Handler) handleDateState(ctx context.Context, userID int64, chatID int64, text string, state *domain.EventState) error {
-	date, err := time.Parse("02.01.2006 15:04", text)
-	if err != nil {
-		h.sendError(chatID, "Неверный формат даты. попробуйте снова (ДД.ММ.ГГГГ ЧЧ:ММ):")
-		return nil
-	}
-
-	if date.Before(time.Now().Add(-5 * time.Minute)) {
-		h.sendError(chatID, "Дата не может быть в прошлом")
-		return nil
-	}
-
-	state.TempEvent.Date = date
-	state.Step = domain.StepCompleted
-
-	if err := h.eventUC.CreateEvent(ctx, userID, state.TempEvent); err != nil {
-		h.sendError(chatID, "Ошибка сохранения события")
-		return fmt.Errorf("failed to create event: %w", err)
-	}
-
-	msg := tgbotapi.NewMessage(chatID, "✅ Событие успешно сохранено!")
+	msg.ReplyMarkup = generateCalendar(calendar.CurrentDate, calendar.CurrentDate)
 	h.bot.Send(msg)
 
 	return nil
 }
 
-func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, chatID int64) error {
+// handleTimeStep ...
+func (h *Handler) handleTimeStep(ctx context.Context, userID int64, chatID int64) error {
+
 	state, err := h.stateRepo.GetState(ctx, userID)
 	if err != nil {
-		h.sendError(chatID, "Ошибка создания события")
+		h.logger.Error("failed to get state:", slog.String("[ERROR]", err.Error()))
+		return fmt.Errorf("failed to get state: %w", err)
+	}
+
+	tp := domain.TimePicker{
+		SelectedTime: state.TempEvent.Date,
+		Step:         "hours",
+	}
+
+	msg := tgbotapi.NewMessage(chatID, "Выбурите время:")
+	msg.ReplyMarkup = timepicker.GenerateTimePicker(&tp)
+	h.bot.Send(msg)
+
+	state.TimePicker = tp
+
+	return h.stateRepo.SaveState(ctx, userID, *state)
+}
+
+// handleFinishEventCreation ...
+func (h *Handler) handleFinishEventCreation(ctx context.Context, update *tgbotapi.Update, text string) error {
+	state, err := h.stateRepo.GetState(ctx, update.Message.From.ID)
+	if err != nil {
+		h.sendError(update.Message.Chat.ID, "Ошибка создания события")
 		return fmt.Errorf("get state error: %w", err)
 	}
 
+	t, err := time.Parse("15:04", text)
+	if err != nil {
+		return fmt.Errorf("failed to parse time: %w", err)
+	}
+
+	d := state.TempEvent.Date
+
+	state.TempEvent.Date = time.Date(d.Year(), d.Month(), d.Day(), t.Hour(), t.Minute(), 0, 0, time.UTC)
+
 	// Валидация данных
-	if state.TempEvent.Title == "" || state.TempEvent.Date.IsZero() {
-		h.sendError(chatID, "Не все данные заполнены")
+	if state.TempEvent.Title == "" || state.TempEvent.Date.IsZero() || state.TempEvent.Date.Hour() == 0 {
+		h.sendError(update.Message.Chat.ID, "Не все данные заполнены")
 		return errors.New("incomplete event data")
 	}
 
 	// создаем полный объект события
 	event := domain.Event{
-		UserID:      userID,
+		UserID:      update.Message.From.ID,
 		Title:       state.TempEvent.Title,
 		Description: state.TempEvent.Description,
 		Date:        state.TempEvent.Date,
@@ -112,8 +117,9 @@ func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, c
 	}
 
 	// Сохраняем в БД
-	if err := h.eventUC.CreateEvent(ctx, userID, event); err != nil {
-		h.sendError(chatID, "Ошибка сохранения события")
+	event.ID, err = h.eventUC.CreateEvent(ctx, update.Message.From.ID, event)
+	if err != nil {
+		h.sendError(update.Message.Chat.ID, "Ошибка сохранения события")
 		return fmt.Errorf("failed to create event: %w", err)
 	}
 
@@ -129,20 +135,10 @@ func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, c
 	)
 
 	// Создаем кнопки управления
-	markup := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				"✏️ Редактировать",
-				fmt.Sprintf("edit_event:%d", event.ID),
-			),
-			tgbotapi.NewInlineKeyboardButtonData(
-				"👥 Участники",
-				fmt.Sprintf("participants:%d", event.ID),
-			),
-		),
-	)
+	isAdmin := h.isAdmin(update.Message.From.ID)
+	markup := createEventButtons(event.ID, false, isAdmin)
 
-	msg := tgbotapi.NewMessage(chatID, msgText)
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, msgText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	msg.ReplyMarkup = markup
 
@@ -151,7 +147,7 @@ func (h *Handler) handleFinishEventCreation(ctx context.Context, userID int64, c
 	}
 
 	// Очищаем состояние
-	if err := h.stateRepo.DeleteState(ctx, userID); err != nil {
+	if err := h.stateRepo.DeleteState(ctx, update.Message.From.ID); err != nil {
 		log.Printf("Failed to clear user state: %v", err)
 	}
 

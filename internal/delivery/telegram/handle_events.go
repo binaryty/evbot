@@ -10,25 +10,30 @@ import (
 	"github.com/binaryty/evbot/internal/util"
 )
 
-func (h *Handler) startNewEvent(ctx context.Context, userID int64, chatID int64) error {
+// startNewEvent ...
+func (h *Handler) startNewEvent(ctx context.Context, update *tgbotapi.Update) error {
 	initialState := domain.EventState{
 		Step: domain.StepTitle,
 		TempEvent: domain.Event{
-			UserID: userID,
+			UserID: update.Message.Chat.ID,
 		},
 	}
 
-	if err := h.stateRepo.SaveState(ctx, userID, initialState); err != nil {
+	if err := h.stateRepo.SaveState(ctx, update.Message.From.ID, initialState); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "Введите название события:")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите название события:")
 	_, err := h.bot.Send(msg)
 	return err
 }
 
-func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) error {
+// listEvents ...
+func (h *Handler) listEvents(ctx context.Context, update *tgbotapi.Update) error {
 	const op = "handler.listEvents"
+	chatID := update.Message.Chat.ID
+	userID := update.Message.From.ID
+
 	events, err := h.eventUC.ListEvents(ctx)
 	if err != nil {
 		h.sendError(chatID, "Ошибка получения событий")
@@ -37,11 +42,12 @@ func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) er
 
 	if len(events) == 0 {
 		msg := tgbotapi.NewMessage(chatID, "У вас пока нет событий")
-		_, err = h.bot.Send(msg)
-		return err
+		h.bot.Send(msg)
+		return nil
 	}
 
 	var messages []tgbotapi.Chattable
+	isAdmin := h.isAdmin(userID)
 
 	for _, event := range events {
 		// Проверяем регистрацию пользователя
@@ -65,33 +71,18 @@ func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) er
 			util.EscapeMarkdownV2(eventOwner.UserName),
 		)
 
-		// Создаем кнопки для каждого события
-		regBtnText, regBtnEmoji := "Регистрация", "🎫"
-		if isRegistered {
-			regBtnText, regBtnEmoji = "Зарегистрирован", "✅"
-		}
-
-		btnRow := tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%s %s", regBtnEmoji, regBtnText),
-				fmt.Sprintf("register:%d", event.ID),
-			),
-			tgbotapi.NewInlineKeyboardButtonData(
-				"👥 Участники",
-				fmt.Sprintf("participants:%d", event.ID),
-			),
-		)
+		buttons := createEventButtons(event.ID, isRegistered, isAdmin)
 
 		// Создаем сообщение с кнопками
 		msg := tgbotapi.NewMessage(chatID, text)
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(btnRow)
+		msg.ReplyMarkup = buttons
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
 		messages = append(messages, msg)
 	}
 
 	// Отправляем основное сообщение с инструкцией
 	infoMsg := tgbotapi.NewMessage(chatID,
-		"📋 *Список ваших событий*\n"+
+		EmList+" *Список ваших событий*\n"+
 			"Используйте кнопки под каждым событием для управления:")
 	infoMsg.ParseMode = "Markdown"
 	messages = append([]tgbotapi.Chattable{infoMsg}, messages...)
@@ -104,4 +95,37 @@ func (h *Handler) listEvents(ctx context.Context, userID int64, chatID int64) er
 	}
 
 	return nil
+}
+
+// createEventButtons ...
+func createEventButtons(eventID int64, isRegistered bool, isAdmin bool) tgbotapi.InlineKeyboardMarkup {
+	row := []tgbotapi.InlineKeyboardButton{
+		createRegButton(eventID, isRegistered),
+		tgbotapi.NewInlineKeyboardButtonData(
+			fmt.Sprintf("%s %s", EmPeople, "Участники"),
+			fmt.Sprintf("participants:%d", eventID),
+		),
+	}
+
+	if isAdmin {
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(
+			fmt.Sprintf("%s %s", EmCross, "Удалить"),
+			fmt.Sprintf("delete_confirm:%d", eventID),
+		))
+	}
+
+	return tgbotapi.NewInlineKeyboardMarkup(row)
+}
+
+// createRegButton ...
+func createRegButton(eventID int64, isRegistered bool) tgbotapi.InlineKeyboardButton {
+	text, icon := "Регистрация", EmReg
+	if isRegistered {
+		text, icon = "Зарегистрирован", EmOk
+	}
+
+	return tgbotapi.NewInlineKeyboardButtonData(
+		fmt.Sprintf("%s %s", icon, text),
+		fmt.Sprintf("register:%d", eventID),
+	)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/binaryty/evbot/internal/domain/entities"
 )
 
+// handleCalendarCallback ...
 func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.CallbackQuery) error {
 	parts := strings.Split(query.Data, ":")
 	if len(parts) < 2 {
@@ -34,10 +35,11 @@ func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.Ca
 			calendar.NextMonth()
 		}
 
+		state.SelectedDate = time.Time{}
 		editMarkup := tgbotapi.NewEditMessageReplyMarkup(
 			query.Message.Chat.ID,
 			query.Message.MessageID,
-			generateCalendar(calendar),
+			generateCalendar(calendar.CurrentDate, state.SelectedDate),
 		)
 		_, err := h.bot.Send(editMarkup)
 		return err
@@ -45,17 +47,22 @@ func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.Ca
 	case "select":
 		// выбор даты
 		selectedDate, _ := time.Parse(dateFormat, parts[2])
+		state.SelectedDate = selectedDate
 		state.TempEvent.Date = selectedDate
 
-		// Запросить время
-		msg := tgbotapi.NewMessage(query.Message.Chat.ID,
-			fmt.Sprintf("Выбрана дата: %s\nВведите время в формате ЧЧ:ММ",
-				selectedDate.Format(dateFormat)))
-		h.bot.Send(msg)
-
 		state.Step = domain.StepTime
+		err := h.stateRepo.SaveState(ctx, userID, *state)
+		if err != nil {
+			return fmt.Errorf("failed to save state: %w", err)
+		}
+		edit := tgbotapi.NewEditMessageReplyMarkup(
+			query.Message.Chat.ID,
+			query.Message.MessageID,
+			generateCalendar(selectedDate, state.SelectedDate),
+		)
+		h.bot.Send(edit)
 
-		return h.stateRepo.SaveState(ctx, userID, *state)
+		return nil
 
 	case "confirm":
 		// Подтвержение даты
@@ -63,9 +70,7 @@ func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.Ca
 			h.sendError(query.Message.Chat.ID, " Дата не выбрана")
 			return nil
 		}
-
-		return h.handleFinishEventCreation(ctx, userID, query.Message.Chat.ID)
 	}
 
-	return nil
+	return h.handleTimeStep(ctx, userID, query.Message.Chat.ID)
 }

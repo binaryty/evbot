@@ -20,3 +20,8 @@ func NewUserUseCase(repo repository.UserRepository) *UserUseCase {
 func (uc *UserUseCase) User(ctx context.Context, userID int64) (*domain.User, error) {
 	return uc.repo.GetByID(ctx, userID)
 }
+
+func (uc *UserUseCase) CreateOrUpdate(ctx context.Context, user *domain.User) error {
+	// TODO: validate user
+	return uc.repo.CreateOrUpdate(ctx, user)
+}

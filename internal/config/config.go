@@ -1,33 +1,52 @@
 package config
 
 import (
-	"log"
+	"flag"
+	"github.com/ilyakaznacheev/cleanenv"
 	"os"
-	"strconv"
 )
 
 type Config struct {
-	BotToken string
-	DBPath   string
-	AdminID  int64
+	BotToken string  `yaml:"bot_token" env-required:"true"`
+	DBPath   string  `yaml:"db_path" env-required:"true"`
+	AdminIDs []int64 `yaml:"admin_ids"`
 }
 
+// Load ...
 func Load() *Config {
-	admID, err := strconv.ParseInt(os.Getenv("ADMIN_ID"), 10, 64)
-	if err != nil {
-		log.Fatalf("failed to parse admin ID")
+	path := fetchConfigPath()
+
+	if path == "" {
+		panic("path to config file is not set")
 	}
 
-	botToken := os.Getenv("BOT_TOKEN")
-	dbPath := os.Getenv("DB_PATH")
+	return loadFromPath(path)
+}
 
-	if botToken == "" || dbPath == "" {
-		log.Fatalf("environment variables must be specified")
+// loadFromPath ...
+func loadFromPath(path string) *Config {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		panic("config file does not exist " + path)
 	}
 
-	return &Config{
-		BotToken: botToken,
-		DBPath:   dbPath,
-		AdminID:  admID,
+	var cfg Config
+
+	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
+		panic("failed to read config: " + err.Error())
 	}
+
+	return &cfg
+}
+
+// fetchConfigPath ...
+func fetchConfigPath() string {
+	var path string
+
+	flag.StringVar(&path, "config", "", "path to config  file")
+	flag.Parse()
+
+	if path == "" {
+		path = os.Getenv("CONFIG_PATH")
+	}
+	return path
 }

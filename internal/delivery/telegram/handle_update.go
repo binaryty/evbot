@@ -8,9 +8,9 @@ import (
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
 
-func (h *Handler) HandleUpdate(ctx context.Context, update tgbotapi.Update) error {
+func (h *Handler) HandleUpdate(ctx context.Context, update *tgbotapi.Update) error {
 	if update.CallbackQuery != nil {
-		return h.handleCallback(ctx, update.CallbackQuery)
+		return h.handleCallback(ctx, update)
 	}
 
 	if update.Message == nil {
@@ -18,30 +18,41 @@ func (h *Handler) HandleUpdate(ctx context.Context, update tgbotapi.Update) erro
 	}
 
 	msg := update.Message
-	chatID := msg.Chat.ID
 	user := domain.User{
 		ID:        msg.From.ID,
 		FirstName: msg.From.FirstName,
 		UserName:  msg.From.UserName,
 	}
 
-	err := h.userRepo.CreateOrUpdate(ctx, &user)
+	err := h.userUC.CreateOrUpdate(ctx, &user)
 	if err != nil {
 		log.Printf("Failed to update user: %v", err)
 	}
 
 	switch msg.Command() {
 	case "start":
-		return h.handleStartCommand(ctx, chatID, user.ID)
+		return h.handleStartCommand(ctx, update)
 	case "help":
-		return h.handleHelpCommand(chatID)
+		return h.handleHelpCommand(update)
 	case "new_event":
-		return h.startNewEvent(ctx, user.ID, msg.Chat.ID)
+		return h.startNewEvent(ctx, update)
 	case "list_events":
-		return h.listEvents(ctx, user.ID, msg.Chat.ID)
+		return h.listEvents(ctx, update)
 	case "cancel":
-		return h.handleCancelCommand(ctx, user.ID, chatID)
+		return h.handleCancelCommand(ctx, update)
 	default:
-		return h.handleUserInput(ctx, user.ID, msg.Chat.ID, msg.Text)
+		return h.handleUserInput(ctx, update, msg.Text)
 	}
+}
+
+func GetUserIDFromUpdate(update *tgbotapi.Update) int64 {
+	if update.CallbackQuery != nil {
+		return update.CallbackQuery.From.ID
+	}
+
+	if update.Message != nil {
+		return update.Message.From.ID
+	}
+
+	return 0
 }

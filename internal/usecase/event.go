@@ -18,9 +18,9 @@ func NewEventUseCase(repo repository.EventRepository) *EventUseCase {
 	}
 }
 
-func (uc *EventUseCase) CreateEvent(ctx context.Context, userID int64, event domain.Event) error {
+func (uc *EventUseCase) CreateEvent(ctx context.Context, userID int64, event domain.Event) (int64, error) {
 	if event.Title == "" {
-		return domain.ErrInvalidEventTitle
+		return 0, domain.ErrInvalidEventTitle
 	}
 
 	event.UserID = userID
@@ -35,4 +35,8 @@ func (uc *EventUseCase) ListUserEvents(ctx context.Context, userID int64) ([]dom
 
 func (uc *EventUseCase) ListEvents(ctx context.Context) ([]domain.Event, error) {
 	return uc.repo.GetAll(ctx)
+}
+
+func (uc *EventUseCase) DeleteEvent(ctx context.Context, eventID int64) error {
+	return uc.repo.Delete(ctx, eventID)
 }
