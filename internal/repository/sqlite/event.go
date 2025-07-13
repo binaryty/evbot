@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
+
+type Scanner interface {
+	Scan(dest ...any) error
+}
 
 type EventRepository struct {
 	db *sql.DB
@@ -20,11 +23,12 @@ func NewEventRepository(db *sql.DB) *EventRepository {
 	}
 }
 
+// Save ...
 func (r *EventRepository) Save(ctx context.Context, e domain.Event) (int64, error) {
 	const query = `
 		INSERT INTO events
 			(user_id, title, description, date, created_at)
-		VALUES (?, ?, ?, ?, ?) RETURNING id`
+		VALUES (?, ?, ?, ?, ?)`
 
 	res, err := r.db.ExecContext(ctx, query,
 		e.UserID,
@@ -44,24 +48,14 @@ func (r *EventRepository) Save(ctx context.Context, e domain.Event) (int64, erro
 	return id, nil
 }
 
+// GetByID ...
 func (r *EventRepository) GetByID(ctx context.Context, eventID int64) (*domain.Event, error) {
 	const query = `
 		SELECT id, user_id, title, description, date, created_at
 		FROM events 
 		WHERE id = ?`
 
-	var event domain.Event
-	var dateStr, createdAtStr string
-
-	err := r.db.QueryRowContext(ctx, query, eventID).Scan(
-		&event.ID,
-		&event.UserID,
-		&event.Title,
-		&event.Description,
-		&dateStr,
-		&createdAtStr,
-	)
-
+	event, err := scanEvent(r.db.QueryRowContext(ctx, query, eventID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrEventNotFound
@@ -70,19 +64,10 @@ func (r *EventRepository) GetByID(ctx context.Context, eventID int64) (*domain.E
 		return nil, fmt.Errorf("failed to get event: %w", err)
 	}
 
-	event.Date, err = time.Parse(time.RFC3339, dateStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse date: %w", err)
-	}
-
-	event.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse date: %w", err)
-	}
-
-	return &event, nil
+	return event, nil
 }
 
+// GetByUserID ...
 func (r *EventRepository) GetByUserID(ctx context.Context, userID int64) ([]domain.Event, error) {
 	const query = `
 		SELECT id, user_id, title, description, date, created_at
@@ -98,36 +83,18 @@ func (r *EventRepository) GetByUserID(ctx context.Context, userID int64) ([]doma
 
 	var events []domain.Event
 	for rows.Next() {
-		var event domain.Event
-		var dateStr, createdAtStr string
-
-		if err := rows.Scan(
-			&event.ID,
-			&event.UserID,
-			&event.Title,
-			&event.Description,
-			&dateStr,
-			&createdAtStr,
-		); err != nil {
+		event, err := scanEvent(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 
-		event.Date, err = time.Parse(time.RFC3339, dateStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse date: %w", err)
-		}
-
-		event.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse date: %w", err)
-		}
-
-		events = append(events, event)
+		events = append(events, *event)
 	}
 
 	return events, nil
 }
 
+// GetAll ...
 func (r *EventRepository) GetAll(ctx context.Context) ([]domain.Event, error) {
 	const query = `
 		SELECT id, user_id, title, description, date, created_at
@@ -146,34 +113,19 @@ func (r *EventRepository) GetAll(ctx context.Context) ([]domain.Event, error) {
 
 	var events []domain.Event
 	for rows.Next() {
-		var event domain.Event
-		var dateStr, createdAtStr string
-
-		if err := rows.Scan(
-			&event.ID,
-			&event.UserID,
-			&event.Title,
-			&event.Description,
-			&dateStr,
-			&createdAtStr,
-		); err != nil {
+		event, err := scanEvent(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
-		event.Date, err = time.Parse(time.RFC3339, dateStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse date: %w", err)
-		}
-		event.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse date: %w", err)
-		}
 
-		events = append(events, event)
+		events = append(events, *event)
+
 	}
 
 	return events, nil
 }
 
+// Delete ...
 func (r *EventRepository) Delete(ctx context.Context, eventID int64) error {
 	const query = `
 		DELETE FROM events
@@ -184,10 +136,32 @@ func (r *EventRepository) Delete(ctx context.Context, eventID int64) error {
 		return fmt.Errorf("failed to delete event: %w", err)
 	}
 
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected err: %w", err)
+	}
 	if rows == 0 {
 		return domain.ErrEventNotFound
 	}
 
 	return err
+}
+
+// scanEvent ...
+func scanEvent(row Scanner) (*domain.Event, error) {
+	var event domain.Event
+
+	err := row.Scan(
+		&event.ID,
+		&event.UserID,
+		&event.Title,
+		&event.Description,
+		&event.Date,
+		&event.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan event: %w", err)
+	}
+
+	return &event, nil
 }
