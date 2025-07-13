@@ -1,16 +1,16 @@
 package telegram
 
 import (
-	"context"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"strconv"
 	"strings"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // handleDeleteConfirmation ...
-func (h *Handler) handleDeleteConfirmation(ctx context.Context, update *tgbotapi.Update) error {
+func (h *Handler) handleDeleteConfirmation(update *tgbotapi.Update) error {
 	query := update.CallbackQuery
 	chatID := query.Message.Chat.ID
 

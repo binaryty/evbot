@@ -3,8 +3,10 @@ package telegram
 import (
 	"context"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
+	"log/slog"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 	"github.com/binaryty/evbot/internal/util"
@@ -12,27 +14,49 @@ import (
 
 // startNewEvent ...
 func (h *Handler) startNewEvent(ctx context.Context, update *tgbotapi.Update) error {
+	userID := update.Message.From.ID
+	chatID := update.Message.Chat.ID
+
+	// Проверяем, является ли пользователь администратором
+	if !h.isAdmin(userID) {
+		msg := tgbotapi.NewMessage(chatID, "🚫 Только администраторы могут создавать события.")
+		if _, err := h.bot.Send(msg); err != nil {
+			h.logger.Warn("failed to send message", "error", err.Error())
+		}
+		return nil
+	}
+
+	msg := tgbotapi.NewMessage(chatID, "Введите название события:")
+	sentMsg, err := h.bot.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	// Сохраняем ID сообщения в состоянии
 	initialState := domain.EventState{
 		Step: domain.StepTitle,
 		TempEvent: domain.Event{
-			UserID: update.Message.Chat.ID,
+			UserID: userID,
 		},
+		MessageID: sentMsg.MessageID,
 	}
 
-	if err := h.stateRepo.SaveState(ctx, update.Message.From.ID, initialState); err != nil {
-		return fmt.Errorf("failed to save state: %w", err)
+	if err := h.stateRepo.SaveState(ctx, userID, initialState); err != nil {
+		h.logger.Error("failed to save state with message ID",
+			slog.String("error", err.Error()),
+			slog.Int64("userID", userID))
+		h.sendError(chatID, "Ошибка инициализации состояния")
+		return err
 	}
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите название события:")
-	_, err := h.bot.Send(msg)
-	return err
+	return nil
 }
 
 // listEvents ...
 func (h *Handler) listEvents(ctx context.Context, update *tgbotapi.Update) error {
 	const op = "handler.listEvents"
-	chatID := update.Message.Chat.ID
 	userID := update.Message.From.ID
+	chatID := update.Message.Chat.ID
 
 	events, err := h.eventUC.ListEvents(ctx)
 	if err != nil {
@@ -42,7 +66,9 @@ func (h *Handler) listEvents(ctx context.Context, update *tgbotapi.Update) error
 
 	if len(events) == 0 {
 		msg := tgbotapi.NewMessage(chatID, "У вас пока нет событий")
-		h.bot.Send(msg)
+		if _, err := h.bot.Send(msg); err != nil {
+			h.logger.Warn("failed to send message", "error", err.Error())
+		}
 		return nil
 	}
 
@@ -58,7 +84,13 @@ func (h *Handler) listEvents(ctx context.Context, update *tgbotapi.Update) error
 		}
 
 		// Формируем сообщение для каждого события
-		eventOwner, _ := h.userUC.User(ctx, event.UserID)
+		author := domain.UNKNOWN
+		eventOwner, _ := h.userUC.GetUserByID(ctx, event.UserID)
+		if eventOwner != nil {
+			author = eventOwner.UserName
+		}
+
+		h.logger.Debug("listEvents", slog.Any("eventOwner", author))
 
 		text := fmt.Sprintf(
 			"📌 %s\n"+
@@ -68,7 +100,7 @@ func (h *Handler) listEvents(ctx context.Context, update *tgbotapi.Update) error
 			util.EscapeMarkdownV2(event.Title),
 			util.EscapeMarkdownV2(event.Description),
 			event.Date.Format("02\\.01\\.2006 15\\:04"),
-			util.EscapeMarkdownV2(eventOwner.UserName),
+			util.EscapeMarkdownV2(author),
 		)
 
 		buttons := createEventButtons(event.ID, isRegistered, isAdmin)

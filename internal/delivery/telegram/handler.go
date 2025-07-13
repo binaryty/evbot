@@ -2,8 +2,9 @@ package telegram
 
 import (
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log/slog"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/binaryty/evbot/internal/config"
 	"github.com/binaryty/evbot/internal/repository"
@@ -11,14 +12,16 @@ import (
 )
 
 const (
-	EmReg    = "🎫"
-	EmCross  = "❌"
-	EmOk     = "✅"
-	EmPeople = "👥"
-	EmList   = "📋"
-	EmPin    = "📌"
-	EmPrev   = "◀️"
-	EmNext   = "▶️"
+	EmReg             = "🎫"
+	EmCross           = "❌"
+	EmOk              = "✅"
+	EmPeople          = "👥"
+	EmList            = "📋"
+	EmPin             = "📌"
+	EmPrev            = "◀️"
+	EmNext            = "▶️"
+	MsgSessionExpired = "Ошибка: сессия создания события истекла. Пожалуйста, начните заново с команды /new_event"
+	MsgSaveError      = "Ошибка сохранения данных"
 )
 
 type Handler struct {
@@ -38,7 +41,6 @@ func NewHandler(
 	eventUC *usecase.EventUseCase,
 	registrationUC *usecase.RegistrationUseCase,
 	userUC *usecase.UserUseCase,
-	//userRepo repository.UserRepository,
 	stateRepo repository.StateRepository,
 ) *Handler {
 	return &Handler{
@@ -55,16 +57,33 @@ func NewHandler(
 func (h *Handler) sendError(chatID int64, text string) {
 	msg := tgbotapi.NewMessage(chatID, "❌ "+text)
 	msg.ParseMode = "Markdown"
-	h.bot.Send(msg)
+
+	if _, err := h.bot.Send(msg); err != nil {
+		h.logger.Error("failed to send error message",
+			slog.Int64("chatID", chatID),
+			slog.String("text", text),
+			slog.String("error", err.Error()))
+	}
 }
 
 func (h *Handler) sendCallback(queryID string, icon string, text string) {
 	callback := tgbotapi.NewCallbackWithAlert(queryID, fmt.Sprintf("%s %s", icon, text))
-	h.bot.Send(callback)
+
+	if _, err := h.bot.Send(callback); err != nil {
+		h.logger.Error("failed to send callback",
+			slog.String("queryID", queryID),
+			slog.String("text", text),
+			slog.String("error", err.Error()))
+	}
 }
 
 func (h *Handler) sendMsg(chatID int64, icon string, text string) {
 	msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("%s %s", icon, text))
 	msg.ParseMode = "Markdown"
-	h.bot.Send(msg)
+	if _, err := h.bot.Send(msg); err != nil {
+		h.logger.Error("failed to send message",
+			slog.Int64("chatID", chatID),
+			slog.String("text", text),
+			slog.String("error", err.Error()))
+	}
 }

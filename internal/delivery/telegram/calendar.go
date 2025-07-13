@@ -2,21 +2,22 @@ package telegram
 
 import (
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 const (
 	dateFormat = "02.01.2006"
 )
 
-func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.InlineKeyboardMarkup {
+func generateCalendar(currentDate time.Time, selectedDate time.Time, ownerID int64) tgbotapi.InlineKeyboardMarkup {
 	now := time.Now()
 
 	var keyboard [][]tgbotapi.InlineKeyboardButton
 
 	// Заголовок с названием месяца и навигацией
-	header := generateHeader(currentDate)
+	header := generateHeader(currentDate, ownerID)
 	keyboard = append(keyboard, header)
 
 	// Заголовок дней недели
@@ -24,25 +25,25 @@ func generateCalendar(currentDate time.Time, selectedDate time.Time) tgbotapi.In
 	keyboard = append(keyboard, weekRow)
 
 	// Сетка с днями
-	grid := generateGrid(&keyboard, now, currentDate, selectedDate)
+	grid := generateGrid(&keyboard, now, currentDate, selectedDate, ownerID)
 	if len(grid) > 0 {
 		keyboard = append(keyboard, grid)
 	}
 
 	// кнопка подтверждения
 	keyboard = append(keyboard, []tgbotapi.InlineKeyboardButton{
-		tgbotapi.NewInlineKeyboardButtonData("Готово", "calendar:confirm"),
+		tgbotapi.NewInlineKeyboardButtonData("Готово", fmt.Sprintf("calendar:confirm:%d", ownerID)),
 	})
 
 	return tgbotapi.NewInlineKeyboardMarkup(keyboard...)
 }
 
 // generateHeader ...
-func generateHeader(currentDate time.Time) []tgbotapi.InlineKeyboardButton {
+func generateHeader(currentDate time.Time, ownerID int64) []tgbotapi.InlineKeyboardButton {
 	return []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonData(
 			EmPrev,
-			fmt.Sprintf("calendar:prev:%s", currentDate.Format(dateFormat)),
+			fmt.Sprintf("calendar:prev:%s:%d", currentDate.Format(dateFormat), ownerID),
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
 			currentDate.Format("January 2006"),
@@ -50,7 +51,7 @@ func generateHeader(currentDate time.Time) []tgbotapi.InlineKeyboardButton {
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
 			EmNext,
-			fmt.Sprintf("calendar:next:%s", currentDate.Format(dateFormat)),
+			fmt.Sprintf("calendar:next:%s:%d", currentDate.Format(dateFormat), ownerID),
 		),
 	}
 }
@@ -67,7 +68,7 @@ func generateWeakRow() []tgbotapi.InlineKeyboardButton {
 }
 
 // generateGrid ...
-func generateGrid(keyboard *[][]tgbotapi.InlineKeyboardButton, now time.Time, currentDate time.Time, selectedDate time.Time) []tgbotapi.InlineKeyboardButton {
+func generateGrid(keyboard *[][]tgbotapi.InlineKeyboardButton, now time.Time, currentDate time.Time, selectedDate time.Time, ownerID int64) []tgbotapi.InlineKeyboardButton {
 	var row []tgbotapi.InlineKeyboardButton
 
 	year, month, _ := currentDate.Date()
@@ -91,7 +92,7 @@ func generateGrid(keyboard *[][]tgbotapi.InlineKeyboardButton, now time.Time, cu
 			dayText = "🟢 " + dayText
 		}
 
-		callbackData := fmt.Sprintf("calendar:select:%s", d.Format(dateFormat))
+		callbackData := fmt.Sprintf("calendar:select:%s:%d", d.Format(dateFormat), ownerID)
 
 		btn := tgbotapi.NewInlineKeyboardButtonData(dayText, callbackData)
 		row = append(row, btn)

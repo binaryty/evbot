@@ -2,9 +2,10 @@ package telegram
 
 import (
 	"context"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"strings"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // handleCallback ...
@@ -32,8 +33,10 @@ func (h *Handler) handleCallback(ctx context.Context, update *tgbotapi.Update) e
 		return h.handleParticipants(ctx, query)
 	case "calendar":
 		return h.handleCalendarCallback(ctx, query)
+	case "time_picker":
+		return h.handleTimeCallback(ctx, query)
 	case "delete_confirm":
-		return h.handleDeleteConfirmation(ctx, update)
+		return h.handleDeleteConfirmation(update)
 	case "delete_event":
 		return h.handleEventDelete(ctx, query)
 	case "delete_cancel":

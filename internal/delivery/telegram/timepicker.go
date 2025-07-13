@@ -1,46 +1,47 @@
-package timepicker
+package telegram
 
 import (
 	"fmt"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
-	"github.com/binaryty/evbot/internal/delivery/telegram"
 	domain "github.com/binaryty/evbot/internal/domain/entities"
 )
 
-func GenerateTimePicker(tp *domain.TimePicker) tgbotapi.InlineKeyboardMarkup {
+// GenerateTimePicker ...
+func GenerateTimePicker(tp *domain.TimePicker, userID int64) tgbotapi.InlineKeyboardMarkup {
 	var timePicker [][]tgbotapi.InlineKeyboardButton
 
-	if tp.Step == "hours" {
-		timePicker = generateHours()
-	} else {
-		timePicker = generateMinutes()
+	switch tp.Step {
+	case domain.StepHours:
+		timePicker = generateHours(userID)
+	case domain.StepMinutes:
+		timePicker = generateMinutes(userID)
 	}
 
 	timePicker = append(timePicker, []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%s %s", telegram.EmOk, "Готово"),
-			"time_confirm",
+			fmt.Sprintf("%s %s", EmOk, "Готово"),
+			fmt.Sprintf("time_picker:time_confirm:%d", userID),
 		),
 		tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%s %s", telegram.EmCross, "Отмена"),
-			"time_cancel",
+			fmt.Sprintf("%s %s", EmCross, "Отмена"),
+			fmt.Sprintf("time_picker:time_cancel:%d", userID),
 		),
 	})
 
-	t := tgbotapi.NewInlineKeyboardMarkup(timePicker...)
-
-	return t
+	return tgbotapi.NewInlineKeyboardMarkup(timePicker...)
 }
 
-func generateHours() [][]tgbotapi.InlineKeyboardButton {
+// generateHours ...
+func generateHours(userID int64) [][]tgbotapi.InlineKeyboardButton {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	var row []tgbotapi.InlineKeyboardButton
 
 	for h := 0; h < 24; h++ {
 		btn := tgbotapi.NewInlineKeyboardButtonData(
 			fmt.Sprintf("%02d", h),
-			fmt.Sprintf("time_h:%02d", h),
+			fmt.Sprintf("time_picker:time_h_select:%02d:%d", h, userID),
 		)
 		row = append(row, btn)
 
@@ -53,7 +54,8 @@ func generateHours() [][]tgbotapi.InlineKeyboardButton {
 	return rows
 }
 
-func generateMinutes() [][]tgbotapi.InlineKeyboardButton {
+// generateMinutes ...
+func generateMinutes(userID int64) [][]tgbotapi.InlineKeyboardButton {
 	minutes := []int{0, 15, 30, 45}
 	var rows [][]tgbotapi.InlineKeyboardButton
 	var row []tgbotapi.InlineKeyboardButton
@@ -61,7 +63,7 @@ func generateMinutes() [][]tgbotapi.InlineKeyboardButton {
 	for _, m := range minutes {
 		btn := tgbotapi.NewInlineKeyboardButtonData(
 			fmt.Sprintf("%02d", m),
-			fmt.Sprintf("time:%02d", m),
+			fmt.Sprintf("time_picker:time_m_select:%02d:%d", m, userID),
 		)
 		row = append(row, btn)
 	}
