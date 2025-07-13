@@ -12,10 +12,12 @@ func NewCalendar() *Calendar {
 	}
 }
 
+// NextMonth ...
 func (c *Calendar) NextMonth() {
 	c.CurrentDate = c.CurrentDate.AddDate(0, 1, 0)
 }
 
+// PrevMonth ...
 func (c *Calendar) PrevMonth() {
 	c.CurrentDate = c.CurrentDate.AddDate(0, -1, 0)
 }
