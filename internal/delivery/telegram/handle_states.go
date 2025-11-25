@@ -22,8 +22,8 @@ func (h *Handler) handleTitleStep(
 	text string,
 	state domain.EventState,
 ) error {
-	if len(text) > 100 {
-		h.sendError(chatID, "Слишком длинное название (макс. 100 символов)")
+	if len(text) > MaxTitleLength {
+		h.sendError(chatID, MsgTitleTooLong)
 		return nil
 	}
 
@@ -62,22 +62,13 @@ func (h *Handler) handleDescriptionStep(
 	text string,
 	state domain.EventState,
 ) error {
-	h.logger.Debug("handleDescriptionStep",
-		slog.Int64("userID", userID),
-		slog.Int64("chatID", chatID),
-		slog.String("text", text))
-
-	if len(text) > 500 {
-		h.sendError(chatID, "Слишком длинное описание (макс. 500 символов)")
+	if len(text) > MaxDescriptionLength {
+		h.sendError(chatID, MsgDescriptionTooLong)
 		return nil
 	}
 
 	state.TempEvent.Description = text
 	state.Step = domain.StepDate
-
-	h.logger.Debug("saving state after description",
-		slog.Int64("userID", userID),
-		slog.String("step", state.Step))
 
 	if err := h.stateRepo.SaveState(ctx, userID, state); err != nil {
 		h.logger.Error("failed to save state in handleDescriptionStep",
@@ -85,18 +76,6 @@ func (h *Handler) handleDescriptionStep(
 			slog.Int64("userID", userID))
 		h.sendError(chatID, MsgSaveError)
 		return fmt.Errorf("failed to save state: %w", err)
-	}
-
-	// Проверка, что состояние сохранилось
-	checkState, checkErr := h.stateRepo.GetState(ctx, userID)
-	if checkErr != nil {
-		h.logger.Error("state verification failed after saving description",
-			slog.String("error", checkErr.Error()),
-			slog.Int64("userID", userID))
-	} else {
-		h.logger.Debug("state verified after saving description",
-			slog.Int64("userID", userID),
-			slog.String("step", checkState.Step))
 	}
 
 	// Получаем календарь
@@ -232,11 +211,9 @@ func (h *Handler) handleFinishEventCreation(
 	chatID int64,
 	state *domain.EventState,
 ) error {
-	var err error
-
 	// Валидация данных
-	if state.TempEvent.Title == "" || state.TempEvent.Date.IsZero() || state.TempEvent.Date.Hour() == 0 {
-		h.sendError(chatID, "Не все данные заполнены")
+	if state.TempEvent.Title == "" || state.TempEvent.Date.IsZero() {
+		h.sendError(chatID, MsgIncompleteData)
 		return errors.New("incomplete event data")
 	}
 
@@ -250,12 +227,12 @@ func (h *Handler) handleFinishEventCreation(
 	}
 
 	// Сохраняем в БД
-	event.ID, err = h.eventUC.CreateEvent(ctx, userID, event)
+	eventID, err := h.eventUC.CreateEvent(ctx, userID, event)
 	if err != nil {
 		if errors.Is(err, domain.ErrAdminOnly) {
-			h.sendError(chatID, "🚫 Только администраторы могут создавать события")
+			h.sendError(chatID, MsgAdminOnly)
 		} else {
-			h.sendError(chatID, "Ошибка сохранения события")
+			h.sendError(chatID, MsgEventSaveError)
 		}
 		return fmt.Errorf("failed to create event: %w", err)
 	}
@@ -273,7 +250,7 @@ func (h *Handler) handleFinishEventCreation(
 
 	// Создаем кнопки управления
 	isAdmin := h.isAdmin(userID)
-	markup := createEventButtons(event.ID, false, isAdmin)
+	markup := createEventButtons(eventID, false, isAdmin)
 
 	msg := tgbotapi.NewMessage(chatID, msgText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2

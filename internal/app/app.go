@@ -36,13 +36,13 @@ func NewApp(cfg *config.Config) *App {
 func (a *App) Init(ctx context.Context) error {
 	db, err := a.initDB()
 	if err != nil {
-		return fmt.Errorf("DB init failed", slog.String("error", err.Error()))
+		return fmt.Errorf("DB init failed: %w", err)
 	}
 	a.db = db
 
 	bot, err := a.initBot()
 	if err != nil {
-		return fmt.Errorf("failed to init bot", slog.String("error", err.Error()))
+		return fmt.Errorf("failed to init bot: %w", err)
 	}
 	a.bot = bot
 

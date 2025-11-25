@@ -120,20 +120,7 @@ func (h *Handler) handleCalendarCallback(ctx context.Context, query *tgbotapi.Ca
 			return fmt.Errorf("failed to save state: %w", err)
 		}
 
-		// 4. Проверяем, что состояние сохранилось
-		checkState, checkErr := h.stateRepo.GetState(ctx, stateUserID)
-		if checkErr != nil {
-			h.logger.Error("state verification failed after date selection",
-				slog.String("error", checkErr.Error()),
-				slog.Int64("userID", stateUserID))
-		} else {
-			h.logger.Debug("state verified after date selection",
-				slog.Int64("userID", stateUserID),
-				slog.String("step", checkState.Step),
-				slog.Any("date", checkState.TempEvent.Date))
-		}
-
-		// 5. Отправляем выбор времени
+		// 4. Отправляем выбор времени
 		h.logger.Debug("proceeding to time selection", slog.Int64("userID", stateUserID))
 		return h.handleTimeStep(ctx, stateUserID, chatID, query.Message.MessageID)
 

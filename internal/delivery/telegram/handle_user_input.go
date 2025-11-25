@@ -20,16 +20,16 @@ func (h *Handler) handleUserInput(ctx context.Context, userID int64, chatID int6
 		return fmt.Errorf("get state error: %w", err)
 	}
 
-	defer func() {
-		if state.Step == domain.StepCompleted {
-			if err := h.stateRepo.DeleteState(ctx, userID); err != nil {
-				h.logger.Warn("failed to delete completed user state",
-					slog.Int64("userID", userID),
-					slog.String("error", err.Error()),
-				)
-			}
+	// Ранний возврат если состояние уже завершено
+	if state.Step == domain.StepCompleted {
+		if err := h.stateRepo.DeleteState(ctx, userID); err != nil {
+			h.logger.Warn("failed to delete completed user state",
+				slog.Int64("userID", userID),
+				slog.String("error", err.Error()),
+			)
 		}
-	}()
+		return nil
+	}
 
 	switch state.Step {
 	case domain.StepTitle:
