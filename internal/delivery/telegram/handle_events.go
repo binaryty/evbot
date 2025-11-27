@@ -129,9 +129,68 @@ func (h *Handler) listEvents(ctx context.Context, update *tgbotapi.Update) error
 	return nil
 }
 
+// listArchivedEvents ...
+func (h *Handler) listArchivedEvents(ctx context.Context, update *tgbotapi.Update) error {
+	const op = "handler.listArchivedEvents"
+	chatID := update.Message.Chat.ID
+
+	events, err := h.eventUC.ListArchivedEvents(ctx)
+	if err != nil {
+		h.sendError(chatID, "Ошибка получения архива событий")
+		return fmt.Errorf("%s: list archived events error: %w", op, err)
+	}
+
+	if len(events) == 0 {
+		msg := tgbotapi.NewMessage(chatID, "Архив событий пуст")
+		if _, err := h.bot.Send(msg); err != nil {
+			h.logger.Warn("failed to send empty archive message", slog.String("error", err.Error()))
+		}
+		return nil
+	}
+
+	header := tgbotapi.NewMessage(chatID,
+		fmt.Sprintf("%s *Архив событий*\nНиже показаны события, завершённые или удалённые из активного списка.",
+			EmArchive))
+	header.ParseMode = tgbotapi.ModeMarkdown
+	if _, err := h.bot.Send(header); err != nil {
+		h.logger.Warn("failed to send archive header", slog.String("error", err.Error()))
+	}
+
+	for _, event := range events {
+		author := domain.UNKNOWN
+		eventOwner, _ := h.userUC.GetUserByID(ctx, event.UserID)
+		if eventOwner != nil {
+			author = eventOwner.UserName
+		}
+
+		text := fmt.Sprintf(
+			"%s *%s*\n"+
+				"📝 %s\n"+
+				"⏰ %s\n"+
+				"*Автор:* %s\n"+
+				"_В архиве с %s_",
+			EmArchive,
+			util.EscapeMarkdownV2(event.Title),
+			util.EscapeMarkdownV2(event.Description),
+			event.Date.Format("02\\.01\\.2006 15\\:04"),
+			util.EscapeMarkdownV2(author),
+			event.CreatedAt.Format("02.01.2006"),
+		)
+
+		msg := tgbotapi.NewMessage(chatID, text)
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+
+		if _, err := h.bot.Send(msg); err != nil {
+			h.logger.Warn("failed to send archived event", slog.String("error", err.Error()))
+		}
+	}
+
+	return nil
+}
+
 // createEventButtons ...
 func createEventButtons(eventID int64, isRegistered bool, isAdmin bool) tgbotapi.InlineKeyboardMarkup {
-	row := []tgbotapi.InlineKeyboardButton{
+	baseRow := []tgbotapi.InlineKeyboardButton{
 		createRegButton(eventID, isRegistered),
 		tgbotapi.NewInlineKeyboardButtonData(
 			fmt.Sprintf("%s %s", EmPeople, "Участники"),
@@ -139,14 +198,23 @@ func createEventButtons(eventID int64, isRegistered bool, isAdmin bool) tgbotapi
 		),
 	}
 
+	keyboard := [][]tgbotapi.InlineKeyboardButton{baseRow}
+
 	if isAdmin {
-		row = append(row, tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%s %s", EmCross, "Удалить"),
-			fmt.Sprintf("delete_confirm:%d", eventID),
-		))
+		adminRow := []tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%s %s", EmArchive, "Архив"),
+				fmt.Sprintf("archive_event:%d", eventID),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%s %s", EmCross, "Удалить"),
+				fmt.Sprintf("delete_confirm:%d", eventID),
+			),
+		}
+		keyboard = append(keyboard, adminRow)
 	}
 
-	return tgbotapi.NewInlineKeyboardMarkup(row)
+	return tgbotapi.NewInlineKeyboardMarkup(keyboard...)
 }
 
 // createRegButton ...

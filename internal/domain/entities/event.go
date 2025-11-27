@@ -23,6 +23,7 @@ type Event struct {
 	Description string    `json:"description,omitempty"`
 	Date        time.Time `json:"date"`
 	CreatedAt   time.Time `json:"createdAt"`
+	Archived    bool      `json:"archived,omitempty"`
 }
 
 type EventState struct {

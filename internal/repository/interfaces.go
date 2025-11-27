@@ -16,6 +16,8 @@ type EventRepository interface {
 	GetByID(ctx context.Context, eventID int64) (*domain.Event, error)
 	GetByUserID(ctx context.Context, userID int64) ([]domain.Event, error)
 	GetAll(ctx context.Context) ([]domain.Event, error)
+	GetArchived(ctx context.Context) ([]domain.Event, error)
+	SetArchived(ctx context.Context, eventID int64, archived bool) error
 	Delete(ctx context.Context, eventID int64) error
 }
 

@@ -14,6 +14,8 @@ func (h *Handler) handleMenuButtons(ctx context.Context, update *tgbotapi.Update
 	switch text {
 	case "📋 Список событий":
 		return h.listEvents(ctx, update)
+	case "📦 Архив событий":
+		return h.listArchivedEvents(ctx, update)
 	case "ℹ️ Помощь":
 		return h.handleHelpCommand(ctx, update)
 	case "🆕 Создать событие":

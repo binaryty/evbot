@@ -69,6 +69,11 @@ func (uc *EventUseCase) ListEvents(ctx context.Context) ([]domain.Event, error) 
 	return uc.repo.GetAll(ctx)
 }
 
+// ListArchivedEvents ...
+func (uc *EventUseCase) ListArchivedEvents(ctx context.Context) ([]domain.Event, error) {
+	return uc.repo.GetArchived(ctx)
+}
+
 // DeleteEvent ...
 func (uc *EventUseCase) DeleteEvent(ctx context.Context, eventID int64) error {
 	_, err := uc.repo.GetByID(ctx, eventID)
@@ -79,4 +84,18 @@ func (uc *EventUseCase) DeleteEvent(ctx context.Context, eventID int64) error {
 	}
 
 	return uc.repo.Delete(ctx, eventID)
+}
+
+// ArchiveEvent ...
+func (uc *EventUseCase) ArchiveEvent(ctx context.Context, adminID int64, eventID int64) error {
+	if !uc.isAdmin(adminID) {
+		return domain.ErrAdminOnly
+	}
+
+	_, err := uc.repo.GetByID(ctx, eventID)
+	if err != nil {
+		return err
+	}
+
+	return uc.repo.SetArchived(ctx, eventID, true)
 }

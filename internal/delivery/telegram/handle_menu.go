@@ -13,6 +13,9 @@ func (h *Handler) createMainMenu(userID int64) tgbotapi.ReplyKeyboardMarkup {
 	// Общие команды для всех пользователей
 	keyboard = append(keyboard, []tgbotapi.KeyboardButton{
 		tgbotapi.NewKeyboardButton("📋 Список событий"),
+		tgbotapi.NewKeyboardButton("📦 Архив событий"),
+	})
+	keyboard = append(keyboard, []tgbotapi.KeyboardButton{
 		tgbotapi.NewKeyboardButton("ℹ️ Помощь"),
 	})
 
@@ -50,7 +53,7 @@ func (h *Handler) hideKeyboard(chatID int64) error {
 // isMenuButton проверяет, является ли текст командой из главного меню
 func (h *Handler) isMenuButton(text string) bool {
 	switch text {
-	case "📋 Список событий", "ℹ️ Помощь", "🆕 Создать событие":
+	case "📋 Список событий", "📦 Архив событий", "ℹ️ Помощь", "🆕 Создать событие":
 		return true
 	default:
 		return false

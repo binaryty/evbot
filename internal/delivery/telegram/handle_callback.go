@@ -41,6 +41,8 @@ func (h *Handler) handleCallback(ctx context.Context, update *tgbotapi.Update) e
 		return h.handleEventDelete(ctx, query)
 	case "delete_cancel":
 		return h.handleCancelCommand(ctx, update)
+	case "archive_event":
+		return h.handleArchiveEvent(ctx, query)
 	}
 
 	return nil

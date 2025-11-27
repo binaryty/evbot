@@ -96,6 +96,10 @@ func (a *App) initDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to init db: %w", err)
 	}
 
+	if err := ensureEventArchiveColumn(db); err != nil {
+		return nil, err
+	}
+
 	return db, nil
 }
 
@@ -113,6 +117,25 @@ func (a *App) initBot() (*tgbotapi.BotAPI, error) {
 
 // initLogger ...
 func (a *App) initLogger() *slog.Logger {
-
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
+
+func ensureEventArchiveColumn(db *sql.DB) error {
+	const checkQuery = `SELECT COUNT(*) FROM pragma_table_info('events') WHERE name = 'archived'`
+
+	var count int
+	if err := db.QueryRow(checkQuery).Scan(&count); err != nil {
+		return fmt.Errorf("failed to inspect events table: %w", err)
+	}
+
+	if count > 0 {
+		return nil
+	}
+
+	const alterQuery = `ALTER TABLE events ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`
+	if _, err := db.Exec(alterQuery); err != nil {
+		return fmt.Errorf("failed to add archived column: %w", err)
+	}
+
+	return nil
 }
